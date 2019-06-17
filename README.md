@@ -49,7 +49,7 @@ The schema design is shown below:
 
 ## The DAG
 
-The DAG is composed of the following tasks
+The DAG is composed of the following functioning tasks
 
 * **initialize_database**: A PostgresOperator which sets up the database and creates the necessary tables
 * **stage_events**: A SubdagOperator which optionally creates a staging table, copies in data from S3 and verifies the row count of the operation. In this case it copies in the logs of user activitiy
