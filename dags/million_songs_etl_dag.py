@@ -44,7 +44,7 @@ default_args = {
     'depends_on_past': False,
     'retries':3,
     'retry_delay':timedelta(minutes = 5),
-    'schedule_interval':None
+    'schedule_interval':'@hourly'
 }
 
 dag = DAG(dag_id,
@@ -53,6 +53,8 @@ dag = DAG(dag_id,
           max_active_runs=1,
           catchup=False
         )
+    
+start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
 init_database_task = PostgresOperator(
     dag = dag, 
@@ -148,6 +150,10 @@ run_quality_checks = DataQualityOperator(
     test_cases = SqlQueries.qa_test_cases
 )
 
+end_operator = DummyOperator(task_id='End_execution',  dag=dag)
+
+start_operator>>init_database_task
 init_database_task >> [stage_events_to_redshift, stage_songs_to_redshift] >> load_songplays_table
 load_songplays_table >> [load_song_dimension_table, load_artist_dimension_table]>>run_quality_checks
 load_songplays_table >> [load_user_dimension_table, load_time_dimension_table]>>run_quality_checks
+run_quality_checks>>end_operator
