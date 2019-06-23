@@ -2,7 +2,6 @@ from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 import logging
-from airflow.plugins_manager import AirflowPlugin
 
 class DataQualityOperator(BaseOperator):
 
@@ -10,8 +9,8 @@ class DataQualityOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                 conn_id = "",
-                 test_cases = [],
+                 conn_id="",
+                 test_cases=[],
                  *args, **kwargs):
 
         super(DataQualityOperator, self).__init__(*args, **kwargs)
@@ -29,7 +28,7 @@ class DataQualityOperator(BaseOperator):
 
             records = pg_hook.get_records(sql)
 
-            if (len(records)<count_threshold+1 or len(records[0])<count_threshold+1):
+            if len(records) < count_threshold+1 or len(records[0]) < count_threshold+1:
                 logging.error(fail_message)
                 raise ValueError(fail_message)
 
@@ -40,13 +39,3 @@ class DataQualityOperator(BaseOperator):
                 raise ValueError(fail_message)
 
             logging.info(pass_message.format(num_records))
-
-class DataQualityPlugin(AirflowPlugin):
-    name = "DataQuality"
-    operators = [DataQualityOperator]
-    hooks = []
-    executors = []
-    macros = []
-    admin_views = []
-    flask_blueprints = []
-    menu_links = []

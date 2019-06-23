@@ -1,7 +1,6 @@
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.plugins_manager import AirflowPlugin
 
 class LoadFactOperator(BaseOperator):
 
@@ -25,13 +24,3 @@ class LoadFactOperator(BaseOperator):
         insert_statement = f"""insert into {self.target_table} {self.fact_select_statement}"""
 
         pg_hook.run(insert_statement)
-
-class LoadFactPlugin(AirflowPlugin):
-    name = "LoadFact"
-    operators = [LoadFactOperator]
-    hooks = []
-    executors = []
-    macros = []
-    admin_views = []
-    flask_blueprints = []
-    menu_links = []

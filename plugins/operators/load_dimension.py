@@ -1,7 +1,6 @@
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.plugins_manager import AirflowPlugin
 
 class LoadDimensionOperator(BaseOperator):
 
@@ -32,13 +31,3 @@ class LoadDimensionOperator(BaseOperator):
             pg_hook.run(delete_stmt)
 
         pg_hook.run(insert_statement)
-
-class LoadDimensionPlugin(AirflowPlugin):
-    name = "LoadDimension"
-    operators = [LoadDimensionOperator]
-    hooks = []
-    executors = []
-    macros = []
-    admin_views = []
-    flask_blueprints = []
-    menu_links = []
