@@ -1,18 +1,15 @@
 from datetime import datetime, timedelta
 import os
 from airflow import DAG
-from airflow.models import Variable
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.postgres_operator import PostgresOperator
 from airflow.operators.subdag_operator import SubDagOperator
-from stage_s3_redshift import get_s3_to_redshift_dag
-from init_db_sql import init_db
-from sql_queries import SqlQueries
+from s3_redshift_subdag import get_s3_to_redshift_dag
+from airflow.operators import (LoadFactOperator, PostgresOperator, 
+                        LoadDimensionOperator, DataQualityOperator)
 
-from airflow.operators import S3ToRedshiftOperator
-from airflow.operators import LoadFactOperator
-from airflow.operators import LoadDimensionOperator
-from airflow.operators import DataQualityOperator
+from helpers import SqlQueries
+from helpers import InitDbQueries
+from airflow.models import Variable
 
 
 dag_vars            = Variable.get("million_songs_s3_buckets", deserialize_json=True)
@@ -23,7 +20,7 @@ songs_data          = dag_vars["songs"]
 redshift_conn_id    = "redshift"
 aws_conn_id         = "aws_credentials"
 
-dag_id = "million_songs_dag"
+dag_id = "million_songs_dag_n"
 
 songs_copy_task_id          = "stage_songs"
 songs_staging_table         = "staging_songs"
@@ -34,6 +31,7 @@ events_staging_table        = "staging_events"
 events_staging_json_paths   = dag_vars['logs_jsonpaths']
 events_staging_copy_params  = [f" json '{events_staging_json_paths}'"]
 
+
 start_date = datetime.now()-timedelta(hours = 4)
 default_args = {
     'owner': 'Kofi Baafi',
@@ -43,24 +41,24 @@ default_args = {
     'email_on_retry': False,
     'depends_on_past': False,
     'retries':3,
-    'retry_delay':timedelta(minutes = 5),
-    'schedule_interval':'@hourly'
+    'retry_delay':timedelta(minutes = 5)
 }
 
 dag = DAG(dag_id,
           default_args=default_args,
           description='Load and transform data in Redshift with Airflow',
           max_active_runs=1,
-          catchup=False
+          catchup=False,
+          schedule_interval='@hourly'
         )
-    
+
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
-init_database_task = PostgresOperator(
+initialize_database = PostgresOperator(
     dag = dag, 
     task_id = 'Initialize_database',
     postgres_conn_id=redshift_conn_id,
-    sql = init_db
+    sql = InitDbQueries.init_db
 )
 
 stage_events_to_redshift = SubDagOperator(
@@ -78,8 +76,7 @@ stage_events_to_redshift = SubDagOperator(
         False,
         events_staging_copy_params,
         start_date = start_date
-    )
-)
+    ))
 
 stage_songs_to_redshift = SubDagOperator(
     dag = dag,
@@ -96,8 +93,7 @@ stage_songs_to_redshift = SubDagOperator(
         False,
         songs_staging_copy_params,
         start_date = start_date
-    )
-)
+    ))
 
 load_songplays_table = LoadFactOperator(
     dag = dag,
@@ -147,13 +143,12 @@ run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
     dag=dag,
     conn_id = redshift_conn_id,
-    test_cases = SqlQueries.qa_test_cases
-)
+    test_cases = SqlQueries.qa_test_cases)
 
-end_operator = DummyOperator(task_id='End_execution',  dag=dag)
+end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
 
-start_operator>>init_database_task
-init_database_task >> [stage_events_to_redshift, stage_songs_to_redshift] >> load_songplays_table
+start_operator>>initialize_database
+initialize_database >> [stage_events_to_redshift, stage_songs_to_redshift] >> load_songplays_table
 load_songplays_table >> [load_song_dimension_table, load_artist_dimension_table]>>run_quality_checks
 load_songplays_table >> [load_user_dimension_table, load_time_dimension_table]>>run_quality_checks
 run_quality_checks>>end_operator

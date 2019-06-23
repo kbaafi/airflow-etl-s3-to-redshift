@@ -1,13 +1,10 @@
-import datetime
-import sys
-
+from datetime import datetime, timedelta
+import os
 from airflow import DAG
-from airflow.operators.postgres_operator import PostgresOperator
+from airflow.operators import StageToRedshiftOperator
+from airflow.operators import HasRowsOperator
 from airflow.hooks.postgres_hook import PostgresHook
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators import S3ToRedshiftOperator
-from airflow.operators import PostgresHasRowsOperator
-from airflow.models import Variable
 
 def create_table(*args, **kwargs):
     create_table_option     = kwargs['params']['create_table_option']
@@ -51,7 +48,7 @@ def get_s3_to_redshift_dag(
                             }
     )
 
-    stage_table_from_s3_task = S3ToRedshiftOperator(
+    stage_table_from_s3_task = StageToRedshiftOperator(
         dag                 = dag,
         task_id             = f"load_{staging_table}_from_s3_to_redshift",
         redshift_conn_id    = redshift_conn_id,
@@ -63,7 +60,7 @@ def get_s3_to_redshift_dag(
         copy_params         = redshift_copy_params
     )
 
-    verify_staged_table_task = PostgresHasRowsOperator(
+    verify_staged_table_task = HasRowsOperator(
         dag                 = dag,
         task_id             = f"verify_{staging_table}_count",
         table               = staging_table,
